@@ -5,43 +5,6 @@ from layers.Conv_Blocks import Inception_Block_V1
 from layers.Embed import DataEmbedding
 
 
-class ComplexLinear(nn.Module):
-    """Complex-valued linear layer: (W_real + j·W_imag) @ (x_real + j·x_imag)."""
-    def __init__(self, in_features, out_features, bias=True):
-        super().__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight_real = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.weight_imag = nn.Parameter(torch.Tensor(out_features, in_features))
-        if bias:
-            self.bias_real = nn.Parameter(torch.Tensor(out_features))
-            self.bias_imag = nn.Parameter(torch.Tensor(out_features))
-        else:
-            self.register_parameter('bias_real', None)
-            self.register_parameter('bias_imag', None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        nn.init.kaiming_uniform_(self.weight_real, a=math.sqrt(5))
-        nn.init.kaiming_uniform_(self.weight_imag, a=math.sqrt(5))
-        if self.bias_real is not None:
-            fan_in = self.in_features
-            bound = 1 / math.sqrt(fan_in)
-            nn.init.uniform_(self.bias_real, -bound, bound)
-            nn.init.uniform_(self.bias_imag, -bound, bound)
-
-    def forward(self, x):
-        """x: complex tensor [B, N, in_features]"""
-        x_real, x_imag = x.real, x.imag
-        # (W_r + j·W_i)(x_r + j·x_i) = W_r·x_r - W_i·x_i + j·(W_r·x_i + W_i·x_r)
-        out_real = torch.matmul(x_real, self.weight_real.T) - torch.matmul(x_imag, self.weight_imag.T)
-        out_imag = torch.matmul(x_real, self.weight_imag.T) + torch.matmul(x_imag, self.weight_real.T)
-        if self.bias_real is not None:
-            out_real = out_real + self.bias_real
-            out_imag = out_imag + self.bias_imag
-        return torch.complex(out_real, out_imag)
-
-
 class Model(nn.Module):
     def __init__(self, configs):
         super().__init__()

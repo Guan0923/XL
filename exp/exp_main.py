@@ -1,6 +1,6 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from models import XLinear,XLinear_ES, XLinear_GT
+from models import XLinear,XLinear_ES, XLinear_GT, XLinear_FFT
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -27,7 +27,8 @@ class Exp_Main(Exp_Basic):
         model_dict = {
             'XLinear':XLinear,
             'XLinear-ES':XLinear_ES,
-            'XLinear-GT':XLinear_GT
+            'XLinear-GT':XLinear_GT,
+            'XLinear-FFT':XLinear_FFT
         }
         model = model_dict[self.args.model].Model(self.args).float()
 
