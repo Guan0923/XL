@@ -1,9 +1,9 @@
 
 model_name=XLinear-FFT
 root_path_name=./dataset/
-data_path_name=ETTm1.csv
-model_id_name=ETTm1
-data_name=ETTm1
+data_path_name=electricity.csv
+model_id_name=electricity
+data_name=custom
 random_seed=2025
 
 log_dir=./logs
@@ -15,10 +15,10 @@ for threshold in 20 30 40; do
 for pred_len in 96 192 336 720; do
 
 case $pred_len in
-    96)   head_dropout=0.5; patience=5;  lr=0.0001; d_model=512; batch_size=32 ;;
-    192)  head_dropout=0.6; patience=10; lr=0.0001; d_model=512; batch_size=32 ;;
-    336)  head_dropout=0.6; patience=5;  lr=0.0002; d_model=512; batch_size=32 ;;
-    720)  head_dropout=0.6; patience=5;  lr=0.0001; d_model=512; batch_size=32 ;;
+    96)  head_dropout=0.2; patience=3; lr=0.0002; d_model=512; batch_size=16 ;;
+    192) head_dropout=0.3; patience=5; lr=0.0001; d_model=512; batch_size=16 ;;
+    336) head_dropout=0.3; patience=5; lr=0.0001; d_model=512; batch_size=16 ;;
+    720) head_dropout=0.6; patience=5; lr=0.0002; d_model=512; batch_size=32 ;;
 esac
 
 python -u run_longExp.py \
@@ -32,7 +32,7 @@ python -u run_longExp.py \
     --features M \
     --seq_len 96 \
     --pred_len $pred_len \
-    --enc_in 7 \
+    --enc_in 321 \
     --d_model $d_model \
     --head_dropout $head_dropout \
     --dropout 0.05 \

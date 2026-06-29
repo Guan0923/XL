@@ -254,7 +254,7 @@ class Exp_Main(Exp_Basic):
         print("find shape", preds.shape, trues.shape)
         mae, mse, rmse, mape, mspe, rse, corr, nse, kge, r2 = metric(preds, trues)
         print('mse:{}, mae:{}, nse:{}, kge:{}, mape:{}'.format(mse, mae, nse, kge, mape))
-        f = open("result.txt", 'a')
+        f = open(f"result_{setting}.txt", 'w')
         f.write(setting + "  \n")
         f.write('mse:{}, mae:{}, rse:{}'.format(mse, mae, rse))
         f.write('\n')
