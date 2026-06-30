@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Agent metadata
+.reasonix/
+
+# Data (downloaded or local datasets)
+data/
+dataset/
+DataSets/
+*.csv
+*.txt
+!requirements.txt
+!script/**/*.txt
+!script/**/*.csv
+
+# Figures / images
+fig/
+*.png
+*.jpg
+*.jpeg
+
+# Model checkpoints / saved weights
+checkpoints/
+ckpt/
+*.pth
+*.pt
+*.ckpt
+
+# Training logs and results
+logs/
+results/
+runs/
+tensorboard/
+wandb/
+
+# Shell logs
+nohup.out
+*.log
+
+# Jupyter (in case notebooks are added later)
+.ipynb_checkpoints/
+*.ipynb
+
+# Git
+*.orig
