@@ -1,6 +1,16 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from models import XLinear, XLinear_ES, XLinear_GT, XLinear_FFT, XLinear_FFT_X
+from models import FreDF_XLinear, XLinear, XLinear_FFT, XLinear_FFT_X
+
+try:
+    from models import XLinear_ES
+except ImportError:
+    XLinear_ES = None
+
+try:
+    from models import XLinear_GT
+except ImportError:
+    XLinear_GT = None
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
 from utils.metrics import metric
 
@@ -27,11 +37,14 @@ class Exp_Main(Exp_Basic):
     def _build_model(self):
         model_dict = {
             'XLinear':XLinear,
-            'XLinear-ES':XLinear_ES,
-            'XLinear-GT':XLinear_GT,
             'XLinear-FFT':XLinear_FFT,
-            'XLinear-FFT-X':XLinear_FFT_X
+            'XLinear-FFT-X':XLinear_FFT_X,
+            'FreDF-XLinear':FreDF_XLinear
         }
+        if XLinear_ES is not None:
+            model_dict['XLinear-ES'] = XLinear_ES
+        if XLinear_GT is not None:
+            model_dict['XLinear-GT'] = XLinear_GT
         model = model_dict[self.args.model].Model(self.args).float()
 
         if self.args.use_multi_gpu and self.args.use_gpu:
