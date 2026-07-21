@@ -106,5 +106,16 @@ pip install -r requirements.txt
 bash ./script/multi_forcasting/etth1.sh
 ```
 
+To enable the loss-gradient feedback learning-rate controller, add:
+
+```bash
+python -u run_longExp.py ... --use_lgflr 1
+```
+
+When enabled, the controller replaces `--lradj`. Its main tunable arguments
+use the `--lgf_` prefix, including `--lgf_tau_down`, `--lgf_tau_up`,
+`--lgf_gamma_down`, `--lgf_gamma_up`, `--lgf_eta_min`, and `--lgf_eta_max`.
+Run `python run_longExp.py --help` for the complete list and default values.
+
 ### Concat
 If you have any questions or concerns, please contact us at {Warren.Jin@csiro.au, Yhuang@mail.hzau.edu.cn, Zaiwen.Feng@mail.hzau.edu.cn} or submit an issue.

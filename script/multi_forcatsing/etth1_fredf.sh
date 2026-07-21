@@ -5,6 +5,10 @@ model_id_name=ETTh1
 data_name=ETTh1
 random_seed=2025
 
+log_dir=./logs
+run_timestamp=$(date +%Y%m%d_%H%M%S)
+mkdir -p "$log_dir"
+
 python -u run_longExp.py \
     --random_seed $random_seed \
     --is_training 1 \
@@ -29,7 +33,9 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --use_lgflr 1 \
+    --learning_rate 0.0005 \
+    > "${log_dir}/${model_id_name}_96_96_fredf_${run_timestamp}.log" 2>&1 &
 
 python -u run_longExp.py \
     --random_seed $random_seed \
@@ -55,7 +61,9 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --use_lgflr 1 \
+    --learning_rate 0.0005 \
+    > "${log_dir}/${model_id_name}_96_192_fredf_${run_timestamp}.log" 2>&1 &
 
 python -u run_longExp.py \
     --random_seed $random_seed \
@@ -81,7 +89,9 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --use_lgflr 1 \
+    --learning_rate 0.0005 \
+    > "${log_dir}/${model_id_name}_96_336_fredf_${run_timestamp}.log" 2>&1 &
 
 python -u run_longExp.py \
     --random_seed $random_seed \
@@ -107,6 +117,8 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --use_lgflr 1 \
+    --learning_rate 0.0005 \
+    > "${log_dir}/${model_id_name}_96_720_fredf_${run_timestamp}.log" 2>&1 &
 
 wait

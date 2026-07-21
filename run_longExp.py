@@ -85,6 +85,29 @@ if __name__ == '__main__':
     parser.add_argument('--pct_start', type=float, default=0.3, help='pct_start')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
+    # Loss-gradient feedback learning-rate controller
+    parser.add_argument('--use_lgflr', type=int, choices=[0, 1], default=0,
+                        help='use loss-gradient feedback LR controller')
+    parser.add_argument('--lgf_beta', type=float, default=0.9)
+    parser.add_argument('--lgf_beta_g', type=float, default=0.9)
+    parser.add_argument('--lgf_tau_down', type=float, default=0.002)
+    parser.add_argument('--lgf_tau_up', type=float, default=0.005)
+    parser.add_argument('--lgf_p_good', type=int, default=2)
+    parser.add_argument('--lgf_p_bad', type=int, default=2)
+    parser.add_argument('--lgf_t_rec', type=int, default=3)
+    parser.add_argument('--lgf_t_trial', type=int, default=2)
+    parser.add_argument('--lgf_gamma_good', type=float, default=0.98)
+    parser.add_argument('--lgf_gamma_down', type=float, default=0.5)
+    parser.add_argument('--lgf_gamma_up', type=float, default=1.25)
+    parser.add_argument('--lgf_gamma_safe', type=float, default=0.5)
+    parser.add_argument('--lgf_tau_rec', type=float, default=0.002)
+    parser.add_argument('--lgf_tau_accept', type=float, default=0.002)
+    parser.add_argument('--lgf_grad_window', type=int, default=5)
+    parser.add_argument('--lgf_kappa_g', type=float, default=0.5)
+    parser.add_argument('--lgf_epsilon', type=float, default=1e-12)
+    parser.add_argument('--lgf_eta_min', type=float, default=1e-7)
+    parser.add_argument('--lgf_eta_max', type=float, default=None)
+
     # XLinear
     parser.add_argument('--c_ff', default=1, type=int)
     parser.add_argument('--t_ff', default=1, type=int)
@@ -151,6 +174,8 @@ if __name__ == '__main__':
                 args.threshold,
                 args.learning_rate,
                 args.des,ii)
+            if args.use_lgflr:
+                setting += '_lgflr'
 
             exp = Exp(args)  # set experiments
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
@@ -185,6 +210,8 @@ if __name__ == '__main__':
                                                                                                     args.threshold,
                                                                                                     args.learning_rate,
                                                                                                     args.des, ii)
+        if args.use_lgflr:
+            setting += '_lgflr'
 
         exp = Exp(args)  # set experiments
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))

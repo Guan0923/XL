@@ -11,7 +11,8 @@ try:
     from models import XLinear_GT
 except ImportError:
     XLinear_GT = None
-from utils.tools import EarlyStopping, adjust_learning_rate, visual, test_params_flop
+from utils.tools import (EarlyStopping, LossGradientFeedbackLRController,
+                         adjust_learning_rate, visual, test_params_flop)
 from utils.metrics import metric
 
 import numpy as np
@@ -209,18 +210,51 @@ class Exp_Main(Exp_Basic):
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
 
+        scaler = None
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
-            
-        scheduler = lr_scheduler.OneCycleLR(optimizer = model_optim,
-                                            steps_per_epoch = train_steps,
-                                            pct_start = self.args.pct_start,
-                                            epochs = self.args.train_epochs,
-                                            max_lr = self.args.learning_rate)
+
+        lr_controller = None
+        if self.args.use_lgflr:
+            lr_controller = LossGradientFeedbackLRController(
+                model=self.model,
+                optimizer=model_optim,
+                checkpoint_path=os.path.join(path, 'lgflr_trial.pth'),
+                scaler=scaler,
+                beta=self.args.lgf_beta,
+                beta_g=self.args.lgf_beta_g,
+                tau_down=self.args.lgf_tau_down,
+                tau_up=self.args.lgf_tau_up,
+                p_good=self.args.lgf_p_good,
+                p_bad=self.args.lgf_p_bad,
+                t_rec=self.args.lgf_t_rec,
+                t_trial=self.args.lgf_t_trial,
+                gamma_good=self.args.lgf_gamma_good,
+                gamma_down=self.args.lgf_gamma_down,
+                gamma_up=self.args.lgf_gamma_up,
+                gamma_safe=self.args.lgf_gamma_safe,
+                tau_rec=self.args.lgf_tau_rec,
+                tau_accept=self.args.lgf_tau_accept,
+                grad_window=self.args.lgf_grad_window,
+                kappa_g=self.args.lgf_kappa_g,
+                epsilon=self.args.lgf_epsilon,
+                eta_min=self.args.lgf_eta_min,
+                eta_max=self.args.lgf_eta_max)
+            print('Using loss-gradient feedback learning-rate controller')
+
+        scheduler = None
+        if not self.args.use_lgflr and self.args.lradj == 'TST':
+            scheduler = lr_scheduler.OneCycleLR(
+                optimizer=model_optim,
+                steps_per_epoch=train_steps,
+                pct_start=self.args.pct_start,
+                epochs=self.args.train_epochs,
+                max_lr=self.args.learning_rate)
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
             train_loss = []
+            epoch_gradient_norm = 0.0
 
             self.model.train()
             epoch_time = time.time()
@@ -261,13 +295,20 @@ class Exp_Main(Exp_Basic):
 
                 if self.args.use_amp:
                     scaler.scale(loss).backward()
+                    if lr_controller is not None:
+                        scaler.unscale_(model_optim)
+                        epoch_gradient_norm += lr_controller.compute_gradient_norm(
+                            self.model.parameters())
                     scaler.step(model_optim)
                     scaler.update()
                 else:
                     loss.backward()
+                    if lr_controller is not None:
+                        epoch_gradient_norm += lr_controller.compute_gradient_norm(
+                            self.model.parameters())
                     model_optim.step()
                     
-            if self.args.lradj == 'TST':
+            if not self.args.use_lgflr and self.args.lradj == 'TST':
                 adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args, printout=False)
                 scheduler.step()
 
@@ -298,10 +339,28 @@ class Exp_Main(Exp_Basic):
                 print("Early stopping")
                 break
 
-            if self.args.lradj != 'TST':
+            if lr_controller is not None:
+                controller_result = lr_controller.step(
+                    validation_loss=vali_loss,
+                    train_epoch_loss=train_loss,
+                    epoch_grad_norm=epoch_gradient_norm / train_steps)
+                print(
+                    'LGF-LR | state: {state}, event: {event}, lr: {lr:.8g}, '
+                    'r_loss: {r_loss}, q_grad: {q_grad:.6f}'.format(
+                        state=controller_result['state'],
+                        event=controller_result['event'],
+                        lr=controller_result['learning_rate'],
+                        r_loss=('N/A' if controller_result['relative_loss_change'] is None
+                                else '{:.6f}'.format(
+                                    controller_result['relative_loss_change'])),
+                        q_grad=controller_result['relative_gradient']))
+            elif self.args.lradj != 'TST':
                 adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args)
             else:
                 print('Updating learning rate to {}'.format(scheduler.get_last_lr()[0]))
+
+        if lr_controller is not None:
+            lr_controller.close()
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
