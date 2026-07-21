@@ -1,6 +1,6 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from models import FreDF_XLinear, XLinear, XLinear_FFT, XLinear_FFT_X
+from models import FreDF_XLinear, XLinear, XLinear_FFT, XLinear_FFT_X, XLinear_FFT_Fre
 
 try:
     from models import XLinear_ES
@@ -39,7 +39,8 @@ class Exp_Main(Exp_Basic):
             'XLinear':XLinear,
             'XLinear-FFT':XLinear_FFT,
             'XLinear-FFT-X':XLinear_FFT_X,
-            'FreDF-XLinear':FreDF_XLinear
+            'FreDF-XLinear':FreDF_XLinear,
+            'XLinear-FFT-Fre':XLinear_FFT_Fre
         }
         if XLinear_ES is not None:
             model_dict['XLinear-ES'] = XLinear_ES
@@ -149,6 +150,48 @@ class Exp_Main(Exp_Basic):
                                  'epoch{}.pdf'.format(epoch + 1)))
         plt.close(fig)
 
+    def _save_glob_heatmaps(self, setting, epoch):
+        """保存 glob_token 的灰度热力图（实部 + 虚部）。
+        每个 epoch 生成一个 PNG，x=频率bin，y=通道。"""
+        if self.args.model != 'XLinear-FFT-X':
+            return
+        model = self.model.module if hasattr(self.model, 'module') else self.model
+        backbone = getattr(model, 'backbone', None)
+        if backbone is None:
+            return
+        # glob_token 仅当 glob_dim > 0 时存在
+        if not hasattr(backbone, 'glob_token_real') or backbone.glob_token_real is None:
+            return
+
+        folder_path = './test_results/' + setting + '/glob_heatmaps/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        real_arr = backbone.glob_token_real.detach().cpu().numpy()[0]  # [C, glob_dim]
+        imag_arr = backbone.glob_token_imag.detach().cpu().numpy()[0]  # [C, glob_dim]
+
+        fig, axes = plt.subplots(2, 1, figsize=(10, 4))
+
+        vmax = max(abs(real_arr).max(), abs(imag_arr).max()) + 1e-8
+
+        im0 = axes[0].imshow(real_arr, aspect='auto', cmap='gray',
+                             vmin=-vmax, vmax=vmax, interpolation='nearest')
+        axes[0].set_title('glob_token real (epoch {})'.format(epoch + 1))
+        axes[0].set_xlabel('frequency bin (high-freq replaced)')
+        axes[0].set_ylabel('channel')
+        plt.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
+
+        im1 = axes[1].imshow(imag_arr, aspect='auto', cmap='gray',
+                             vmin=-vmax, vmax=vmax, interpolation='nearest')
+        axes[1].set_title('glob_token imag (epoch {})'.format(epoch + 1))
+        axes[1].set_xlabel('frequency bin (high-freq replaced)')
+        axes[1].set_ylabel('channel')
+        plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+
+        fig.tight_layout()
+        fig.savefig(os.path.join(folder_path, 'epoch{}.png'.format(epoch + 1)))
+        plt.close(fig)
+
     def train(self, setting):
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
@@ -228,9 +271,10 @@ class Exp_Main(Exp_Basic):
                 adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args, printout=False)
                 scheduler.step()
 
-            # 每个 epoch 最后一个 iter：保存 batch 0 的灰度热力图
+            # 每个 epoch 最后一个 iter：保存 batch 0 的灰度热力图 + glob_token 热力图
             if i == train_steps - 1:
                 self._save_fft_heatmaps(setting, epoch)
+                self._save_glob_heatmaps(setting, epoch)
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
@@ -239,6 +283,15 @@ class Exp_Main(Exp_Basic):
 
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
+
+            # ---- glob_token 可视化（仅 XLinear-FFT-X 模型） ----
+            if self.args.model == 'XLinear-FFT-X' and hasattr(self.model, 'backbone'):
+                bb = self.model.backbone
+                if hasattr(bb, '_cached_glob_stats') and bb._cached_glob_stats is not None:
+                    r_mean, r_std, i_mean, i_std, r_max, i_max = bb._cached_glob_stats
+                    print("  [glob_token] real_mean={:.6f} real_std={:.6f} imag_mean={:.6f} imag_std={:.6f} | real_max={:.6f} imag_max={:.6f}".format(
+                        r_mean, r_std, i_mean, i_std, r_max, i_max))
+                    bb._cached_glob_stats = None  # 重置，下一个 epoch 重新缓存
             # 早停改用 test loss（仅供观察模型最优，存在 test 泄漏，不建议正式实验使用）
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:

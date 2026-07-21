@@ -97,7 +97,9 @@ if __name__ == '__main__':
     parser.add_argument('--top_k', default=5, type=int, help='top k frequencies to keep')
     parser.add_argument('--threshold', default=50, type=int, help='frequency index threshold; indices > this are truncated')
 
-    # GPU
+    # XLinear_FFT_Fre
+    parser.add_argument('--channel_model', default=7, type=int, help='channel model dimension for FFT_Fre backbone')
+    parser.add_argument('--hidden_size', default=256, type=int, help='hidden size for projection head')
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)

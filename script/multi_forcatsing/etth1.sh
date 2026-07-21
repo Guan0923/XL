@@ -6,6 +6,8 @@ model_id_name=ETTh1
 data_name=ETTh1
 random_seed=2025
 
+mkdir -p logs
+
 python -u run_longExp.py \
     --random_seed $random_seed \
     --is_training 1 \
@@ -30,7 +32,7 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --learning_rate 0.0005 > logs/ETTh1_96_96.log 2>&1 &
 
 python -u run_longExp.py \
     --random_seed $random_seed \
@@ -56,7 +58,7 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --learning_rate 0.0005 > logs/ETTh1_96_192.log 2>&1 &
 
 python -u run_longExp.py \
     --random_seed $random_seed \
@@ -82,7 +84,7 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --learning_rate 0.0005 > logs/ETTh1_96_336.log 2>&1 &
 
 python -u run_longExp.py \
     --random_seed $random_seed \
@@ -108,6 +110,6 @@ python -u run_longExp.py \
     --train_epochs 30 \
     --batch_size 128 \
     --itr 1 \
-    --learning_rate 0.0005 &
+    --learning_rate 0.0005 > logs/ETTh1_96_720.log 2>&1 &
 
 wait

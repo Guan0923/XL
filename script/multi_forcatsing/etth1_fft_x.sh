@@ -13,9 +13,9 @@ for pred_len in 96 192 336 720; do
 
 case $pred_len in
     96)   thresholds="40"; d_model=128; t_ff=512;   t_dropout=0;  c_ff=7;   c_dropout=0;  embed_dropout=0;  head_dropout=0.2; patience=10; lr=0.0005; batch_size=128 ;;
-    192)  thresholds="36 37 38 39";   d_model=128; t_ff=1024;  t_dropout=0;  c_ff=7;   c_dropout=0;  embed_dropout=0;  head_dropout=0.3; patience=5;  lr=0.0005; batch_size=128 ;;
-    336)  thresholds="36 38 41";   d_model=128; t_ff=1024;  t_dropout=0;  c_ff=7;   c_dropout=0;  embed_dropout=0;  head_dropout=0.4; patience=5;  lr=0.0005; batch_size=128 ;;
-    720)  thresholds="25 30 35";    d_model=64;  t_ff=128;   t_dropout=0.1; c_ff=7;  c_dropout=0;  embed_dropout=0;  head_dropout=0.2; patience=10; lr=0.0005; batch_size=128 ;;
+    192)  thresholds="40"; d_model=128; t_ff=1024;  t_dropout=0;  c_ff=7;   c_dropout=0;  embed_dropout=0;  head_dropout=0.3; patience=5;  lr=0.0005; batch_size=128 ;;
+    336)  thresholds="40"; d_model=128; t_ff=1024;  t_dropout=0;  c_ff=7;   c_dropout=0;  embed_dropout=0;  head_dropout=0.4; patience=5;  lr=0.0005; batch_size=128 ;;
+    720)  thresholds="20"; d_model=64;  t_ff=128;   t_dropout=0.1; c_ff=7;  c_dropout=0;  embed_dropout=0;  head_dropout=0.2; patience=10; lr=0.0005; batch_size=128 ;;
 esac
 
 for threshold in $thresholds; do

@@ -133,6 +133,9 @@ class FFT_Denoise_XLinear(nn.Module):
         else:
             self.glob_dim = 0
 
+        # ---- 可视化：缓存最后一个 batch 的 glob_token 统计 ----
+        self._cached_glob_stats = None
+
         # ---- Phase 2: XLinear multi-series backbone ----
         # Project denoised time-domain signal to d_model
         self.projection = nn.Sequential(
@@ -171,6 +174,18 @@ class FFT_Denoise_XLinear(nn.Module):
                 self.glob_token_real, self.glob_token_imag)  # [1, C, glob_dim]
             fft_replaced = torch.cat(
                 [fft[:, :, :self.threshold], glob_token_fft.repeat(B, 1, 1)], dim=-1)
+
+            # 缓存 glob_token 统计（仅在训练时）
+            if self.training:
+                with torch.no_grad():
+                    self._cached_glob_stats = (
+                        self.glob_token_real.mean().item(),
+                        self.glob_token_real.std().item(),
+                        self.glob_token_imag.mean().item(),
+                        self.glob_token_imag.std().item(),
+                        self.glob_token_real.abs().max().item(),
+                        self.glob_token_imag.abs().max().item(),
+                    )
         else:
             # threshold == freq_dim，保留全部，无需替换
             fft_replaced = fft[:, :, :self.threshold]
