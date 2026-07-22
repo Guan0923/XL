@@ -91,7 +91,7 @@ if __name__ == '__main__':
                         help='full controller or minimal plateau ablation')
     parser.add_argument('--lgf_plateau_patience', type=int, default=3,
                         help='non-improving epochs before reducing LR in plateau mode')
-    parser.add_argument('--lgf_plateau_factor', type=float, default=0.9,
+    parser.add_argument('--lgf_plateau_factor', type=float, default=0.8,
                         help='learning-rate factor in plateau mode')
     parser.add_argument('--lgf_plateau_eta_min', type=float, default=1e-7,
                         help='minimum learning rate in plateau mode')

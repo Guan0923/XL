@@ -27,12 +27,12 @@ class PlateauLRControllerTest(unittest.TestCase):
         self.assertEqual(second['event'], 'lr_held')
         self.assertEqual(third['event'], 'lr_held')
         self.assertEqual(fourth['event'], 'lr_reduced')
-        self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 0.09)
+        self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 0.08)
         self.assertEqual(controller.bad_epochs, 0)
 
         improved = controller.step(validation_loss=0.9, train_epoch_loss=9.0)
         self.assertEqual(improved['event'], 'improved')
-        self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 0.09)
+        self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 0.08)
         self.assertEqual(controller.bad_epochs, 0)
 
     def test_counter_resets_and_reduces_again_after_three_bad_epochs(self):
@@ -49,7 +49,7 @@ class PlateauLRControllerTest(unittest.TestCase):
         second_reduction = controller.step(validation_loss=1.6)
 
         self.assertEqual(second_reduction['event'], 'lr_reduced')
-        self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 0.081)
+        self.assertAlmostEqual(optimizer.param_groups[0]['lr'], 0.064)
         self.assertEqual(controller.reductions, 2)
 
     def test_eta_min_and_metric_fallback(self):

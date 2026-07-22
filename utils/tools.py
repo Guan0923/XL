@@ -609,7 +609,7 @@ class PlateauLRController:
 
     requires_gradient = False
 
-    def __init__(self, optimizer, patience=3, factor=0.9, eta_min=1e-7):
+    def __init__(self, optimizer, patience=3, factor=0.8, eta_min=1e-7):
         if not optimizer.param_groups:
             raise ValueError('optimizer must contain at least one parameter group')
         if isinstance(patience, bool) or int(patience) != patience or patience < 1:

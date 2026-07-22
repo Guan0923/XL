@@ -12,7 +12,7 @@ learning_rate=0.0005
 baseline_lradj=type3
 lgf_eta_min=1e-7
 lgf_eta_max=$learning_rate
-lgf_plateau_factor=0.9
+lgf_plateau_factor=0.8
 
 log_dir=./logs
 run_id="$(date +%Y%m%d_%H%M%S)_$$"
