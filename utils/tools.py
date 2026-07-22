@@ -53,6 +53,41 @@ class LossGradientFeedbackLRController:
     the whole epoch rather than the loss of its final batch. If AMP is used,
     call ``scaler.unscale_(optimizer)`` before ``compute_gradient_norm`` and
     average the returned batch norms over the epoch.
+
+    参数说明：
+        model: 被训练的模型。探索前保存其参数，探索失败时完整恢复。
+        optimizer: 被控制的优化器。控制器修改学习率，并在回滚时恢复
+            参数组、动量等完整优化器状态。
+        checkpoint_path: 探索临时 checkpoint 的路径，与 EarlyStopping
+            保存的最佳模型 checkpoint 相互独立。
+        scaler: 可选 AMP GradScaler，提供时随 checkpoint 保存和恢复。
+        beta: loss 的 EMA 系数。越接近 1 越平滑、响应越慢；
+            tau_down 和 tau_up 均作用于平滑后的相对 loss 变化率。
+        beta_g: 梯度范数的 EMA 系数，越接近 1 越平滑。
+        tau_down: 有效下降阈值，r_t < -tau_down 时计为有效下降。
+        tau_up: 有效上升阈值，r_t > tau_up 时计为有效上升；
+            两个阈值之间的变化被视为 stable。
+        p_good: 触发 gamma_good 缓慢衰减所需的连续下降次数。
+        p_bad: 容许的连续上升次数。实现使用 bad_count > p_bad，
+            因此默认 2 表示容忍两次、第三次触发恢复。
+        t_rec: 降低学习率后的固定恢复观察 epoch 数。
+        t_trial: 提高学习率后的固定探索观察 epoch 数。
+        gamma_good: 连续下降时的温和学习率衰减系数。
+        gamma_down: 确认不稳定或高梯度恢复失败后的衰减系数。
+        gamma_up: 低相对梯度提出探索时的学习率放大系数。
+        gamma_safe: 探索失败并回滚后的安全衰减系数。
+        tau_rec: 接受恢复结果所需的最小相对 loss 改善率。
+        tau_accept: 接受探索结果所需的最小相对 loss 改善率。
+        grad_window: 计算近期平滑梯度中位数参考值的 epoch 数 M。
+        kappa_g: 相对梯度阈值，仅在恢复失败后检查；q_t^g 小于该值
+            时梯度提议进入探索。
+        epsilon: loss 相对变化率和梯度比值分母的防零常数。
+        eta_min: 控制器允许设置的最小学习率。
+        eta_max: 控制器允许设置的最大学习率；None 表示使用初始
+            学习率，因此探索默认不会超过初始学习率。
+
+    所有默认值均为启发式初值，不代表理论最优值，需要通过消融实验
+    和敏感性分析针对具体模型与数据集进行验证。
     """
 
     NORMAL = 'normal'
@@ -60,6 +95,7 @@ class LossGradientFeedbackLRController:
     TRIAL = 'trial'
     ROLLBACK = 'rollback'
     _STATE_DICT_VERSION = 1
+    requires_gradient = True
 
     def __init__(
             self,
@@ -562,6 +598,128 @@ class LossGradientFeedbackLRController:
     def close(self):
         """Remove an unresolved trial checkpoint when training terminates."""
         self._discard_trial_checkpoint()
+
+
+class PlateauLRController:
+    """Minimal loss-plateau learning-rate controller.
+
+    This first-stage ablation deliberately uses only the historical best
+    monitored loss. It does not use EMA, gradients, exploration, or rollback.
+    """
+
+    requires_gradient = False
+
+    def __init__(self, optimizer, patience=3, factor=0.5, eta_min=1e-7):
+        if not optimizer.param_groups:
+            raise ValueError('optimizer must contain at least one parameter group')
+        if isinstance(patience, bool) or int(patience) != patience or patience < 1:
+            raise ValueError('patience must be a positive integer')
+        if not 0.0 < factor < 1.0:
+            raise ValueError('factor must be in (0, 1)')
+        if eta_min <= 0.0:
+            raise ValueError('eta_min must be positive')
+
+        self.optimizer = optimizer
+        self.patience = int(patience)
+        self.factor = float(factor)
+        self.eta_min = float(eta_min)
+        self.state = 'plateau'
+        self.best_loss = None
+        self.bad_epochs = 0
+        self.reductions = 0
+
+        self._set_lr(self._current_lr())
+
+    def step(self, validation_loss=None, train_epoch_loss=None):
+        """Observe one epoch and hold or halve the learning rate.
+
+        Validation loss has priority. If it is unavailable, train_epoch_loss
+        must be the mean over the complete epoch, not the final batch loss.
+        """
+        monitor_loss = validation_loss
+        loss_source = 'validation'
+        if monitor_loss is None:
+            monitor_loss = train_epoch_loss
+            loss_source = 'train_epoch_mean'
+        if monitor_loss is None:
+            raise ValueError('validation_loss or train_epoch_loss is required')
+
+        monitor_loss = self._finite_float(monitor_loss, 'monitor loss')
+        improved = self.best_loss is None or monitor_loss < self.best_loss
+        if improved:
+            self.best_loss = monitor_loss
+            self.bad_epochs = 0
+            event = 'improved'
+        else:
+            self.bad_epochs += 1
+            if self.bad_epochs >= self.patience:
+                old_lr = self._current_lr()
+                new_lr = self._clip_lr(self.factor * old_lr)
+                self._set_lr(new_lr)
+                self.bad_epochs = 0
+                if new_lr < old_lr:
+                    self.reductions += 1
+                    event = 'lr_halved'
+                else:
+                    event = 'lr_floor'
+            else:
+                event = 'lr_held'
+
+        return {
+            'state': self.state,
+            'event': event,
+            'loss_source': loss_source,
+            'learning_rate': self._current_lr(),
+            'best_loss': self.best_loss,
+            'bad_epochs': self.bad_epochs,
+            'patience': self.patience,
+            'reductions': self.reductions,
+        }
+
+    def state_dict(self):
+        return {
+            'state': self.state,
+            'patience': self.patience,
+            'factor': self.factor,
+            'eta_min': self.eta_min,
+            'best_loss': self.best_loss,
+            'bad_epochs': self.bad_epochs,
+            'reductions': self.reductions,
+        }
+
+    def load_state_dict(self, state_dict):
+        self.state = state_dict['state']
+        self.patience = int(state_dict['patience'])
+        self.factor = float(state_dict['factor'])
+        self.eta_min = float(state_dict['eta_min'])
+        self.best_loss = state_dict['best_loss']
+        self.bad_epochs = int(state_dict['bad_epochs'])
+        self.reductions = int(state_dict['reductions'])
+
+    def close(self):
+        pass
+
+    def _current_lr(self):
+        return float(self.optimizer.param_groups[0]['lr'])
+
+    def _clip_lr(self, learning_rate):
+        return max(float(learning_rate), self.eta_min)
+
+    def _set_lr(self, learning_rate):
+        learning_rate = self._clip_lr(learning_rate)
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = learning_rate
+
+    @staticmethod
+    def _finite_float(value, name):
+        if torch.is_tensor(value):
+            if value.numel() != 1:
+                raise ValueError('{} must be scalar'.format(name))
+            value = value.detach().item()
+        value = float(value)
+        if not math.isfinite(value):
+            raise ValueError('{} must be finite'.format(name))
+        return value
 
 
 class EarlyStopping:

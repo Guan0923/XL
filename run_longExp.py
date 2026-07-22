@@ -86,6 +86,15 @@ if __name__ == '__main__':
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
     # Loss-gradient feedback learning-rate controller
+    parser.add_argument('--lgf_mode', type=str, choices=['full', 'plateau'],
+                        default='full',
+                        help='full controller or minimal plateau ablation')
+    parser.add_argument('--lgf_plateau_patience', type=int, default=3,
+                        help='non-improving epochs before halving in plateau mode')
+    parser.add_argument('--lgf_plateau_factor', type=float, default=0.5,
+                        help='learning-rate factor in plateau mode')
+    parser.add_argument('--lgf_plateau_eta_min', type=float, default=1e-7,
+                        help='minimum learning rate in plateau mode')
     parser.add_argument('--use_lgflr', type=int, choices=[0, 1], default=0,
                         help='use loss-gradient feedback LR controller')
     parser.add_argument('--lgf_beta', type=float, default=0.9)
@@ -176,6 +185,8 @@ if __name__ == '__main__':
                 args.des,ii)
             if args.use_lgflr:
                 setting += '_lgflr'
+                if args.lgf_mode != 'full':
+                    setting += '_' + args.lgf_mode
 
             exp = Exp(args)  # set experiments
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
@@ -212,6 +223,8 @@ if __name__ == '__main__':
                                                                                                     args.des, ii)
         if args.use_lgflr:
             setting += '_lgflr'
+            if args.lgf_mode != 'full':
+                setting += '_' + args.lgf_mode
 
         exp = Exp(args)  # set experiments
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))

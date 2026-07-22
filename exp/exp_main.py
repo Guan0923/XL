@@ -12,7 +12,8 @@ try:
 except ImportError:
     XLinear_GT = None
 from utils.tools import (EarlyStopping, LossGradientFeedbackLRController,
-                         adjust_learning_rate, visual, test_params_flop)
+                         PlateauLRController, adjust_learning_rate, visual,
+                         test_params_flop)
 from utils.metrics import metric
 
 import numpy as np
@@ -216,31 +217,40 @@ class Exp_Main(Exp_Basic):
 
         lr_controller = None
         if self.args.use_lgflr:
-            lr_controller = LossGradientFeedbackLRController(
-                model=self.model,
-                optimizer=model_optim,
-                checkpoint_path=os.path.join(path, 'lgflr_trial.pth'),
-                scaler=scaler,
-                beta=self.args.lgf_beta,
-                beta_g=self.args.lgf_beta_g,
-                tau_down=self.args.lgf_tau_down,
-                tau_up=self.args.lgf_tau_up,
-                p_good=self.args.lgf_p_good,
-                p_bad=self.args.lgf_p_bad,
-                t_rec=self.args.lgf_t_rec,
-                t_trial=self.args.lgf_t_trial,
-                gamma_good=self.args.lgf_gamma_good,
-                gamma_down=self.args.lgf_gamma_down,
-                gamma_up=self.args.lgf_gamma_up,
-                gamma_safe=self.args.lgf_gamma_safe,
-                tau_rec=self.args.lgf_tau_rec,
-                tau_accept=self.args.lgf_tau_accept,
-                grad_window=self.args.lgf_grad_window,
-                kappa_g=self.args.lgf_kappa_g,
-                epsilon=self.args.lgf_epsilon,
-                eta_min=self.args.lgf_eta_min,
-                eta_max=self.args.lgf_eta_max)
-            print('Using loss-gradient feedback learning-rate controller')
+            lgf_mode = getattr(self.args, 'lgf_mode', 'full')
+            if lgf_mode == 'plateau':
+                lr_controller = PlateauLRController(
+                    optimizer=model_optim,
+                    patience=self.args.lgf_plateau_patience,
+                    factor=self.args.lgf_plateau_factor,
+                    eta_min=self.args.lgf_plateau_eta_min)
+                print('Using plateau loss learning-rate controller')
+            else:
+                lr_controller = LossGradientFeedbackLRController(
+                    model=self.model,
+                    optimizer=model_optim,
+                    checkpoint_path=os.path.join(path, 'lgflr_trial.pth'),
+                    scaler=scaler,
+                    beta=self.args.lgf_beta,
+                    beta_g=self.args.lgf_beta_g,
+                    tau_down=self.args.lgf_tau_down,
+                    tau_up=self.args.lgf_tau_up,
+                    p_good=self.args.lgf_p_good,
+                    p_bad=self.args.lgf_p_bad,
+                    t_rec=self.args.lgf_t_rec,
+                    t_trial=self.args.lgf_t_trial,
+                    gamma_good=self.args.lgf_gamma_good,
+                    gamma_down=self.args.lgf_gamma_down,
+                    gamma_up=self.args.lgf_gamma_up,
+                    gamma_safe=self.args.lgf_gamma_safe,
+                    tau_rec=self.args.lgf_tau_rec,
+                    tau_accept=self.args.lgf_tau_accept,
+                    grad_window=self.args.lgf_grad_window,
+                    kappa_g=self.args.lgf_kappa_g,
+                    epsilon=self.args.lgf_epsilon,
+                    eta_min=self.args.lgf_eta_min,
+                    eta_max=self.args.lgf_eta_max)
+                print('Using loss-gradient feedback learning-rate controller')
 
         scheduler = None
         if not self.args.use_lgflr and self.args.lradj == 'TST':
@@ -295,7 +305,7 @@ class Exp_Main(Exp_Basic):
 
                 if self.args.use_amp:
                     scaler.scale(loss).backward()
-                    if lr_controller is not None:
+                    if lr_controller is not None and lr_controller.requires_gradient:
                         scaler.unscale_(model_optim)
                         epoch_gradient_norm += lr_controller.compute_gradient_norm(
                             self.model.parameters())
@@ -303,7 +313,7 @@ class Exp_Main(Exp_Basic):
                     scaler.update()
                 else:
                     loss.backward()
-                    if lr_controller is not None:
+                    if lr_controller is not None and lr_controller.requires_gradient:
                         epoch_gradient_norm += lr_controller.compute_gradient_norm(
                             self.model.parameters())
                     model_optim.step()
@@ -340,20 +350,33 @@ class Exp_Main(Exp_Basic):
                 break
 
             if lr_controller is not None:
-                controller_result = lr_controller.step(
-                    validation_loss=vali_loss,
-                    train_epoch_loss=train_loss,
-                    epoch_grad_norm=epoch_gradient_norm / train_steps)
-                print(
-                    'LGF-LR | state: {state}, event: {event}, lr: {lr:.8g}, '
-                    'r_loss: {r_loss}, q_grad: {q_grad:.6f}'.format(
-                        state=controller_result['state'],
-                        event=controller_result['event'],
-                        lr=controller_result['learning_rate'],
-                        r_loss=('N/A' if controller_result['relative_loss_change'] is None
-                                else '{:.6f}'.format(
-                                    controller_result['relative_loss_change'])),
-                        q_grad=controller_result['relative_gradient']))
+                if lr_controller.requires_gradient:
+                    controller_result = lr_controller.step(
+                        validation_loss=vali_loss,
+                        train_epoch_loss=train_loss,
+                        epoch_grad_norm=epoch_gradient_norm / train_steps)
+                    print(
+                        'LGF-LR | state: {state}, event: {event}, lr: {lr:.8g}, '
+                        'r_loss: {r_loss}, q_grad: {q_grad:.6f}'.format(
+                            state=controller_result['state'],
+                            event=controller_result['event'],
+                            lr=controller_result['learning_rate'],
+                            r_loss=('N/A' if controller_result['relative_loss_change'] is None
+                                    else '{:.6f}'.format(
+                                        controller_result['relative_loss_change'])),
+                            q_grad=controller_result['relative_gradient']))
+                else:
+                    controller_result = lr_controller.step(
+                        validation_loss=vali_loss,
+                        train_epoch_loss=train_loss)
+                    print(
+                        'Plateau-LR | event: {event}, lr: {lr:.8g}, '
+                        'best: {best:.7f}, bad_epochs: {bad}/{patience}'.format(
+                            event=controller_result['event'],
+                            lr=controller_result['learning_rate'],
+                            best=controller_result['best_loss'],
+                            bad=controller_result['bad_epochs'],
+                            patience=controller_result['patience']))
             elif self.args.lradj != 'TST':
                 adjust_learning_rate(model_optim, scheduler, epoch + 1, self.args)
             else:

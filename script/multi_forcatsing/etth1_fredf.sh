@@ -1,124 +1,82 @@
 model_name=FreDF-XLinear
+model_tag=fredf_xlinear
 root_path_name=./dataset/
 data_path_name=ETTh1.csv
 model_id_name=ETTh1
 data_name=ETTh1
 random_seed=2025
 
+train_epochs=100
+patience=20
+learning_rate=0.0005
+baseline_lradj=type3
+lgf_eta_min=1e-7
+lgf_eta_max=$learning_rate
+
 log_dir=./logs
-run_timestamp=$(date +%Y%m%d_%H%M%S)
+run_id="$(date +%Y%m%d_%H%M%S)_$$"
 mkdir -p "$log_dir"
 
-python -u run_longExp.py \
-    --random_seed $random_seed \
-    --is_training 1 \
-    --root_path $root_path_name \
-    --data_path $data_path_name \
-    --model_id ETTh1_96_96 \
-    --model $model_name \
-    --data $data_name \
-    --features M \
-    --seq_len 96 \
-    --pred_len 96 \
-    --enc_in 7 \
-    --d_model 128 \
-    --t_ff 512 \
-    --c_ff 7 \
-    --t_dropout 0 \
-    --c_dropout 0 \
-    --head_dropout 0.2 \
-    --embed_dropout 0 \
-    --patience 10 \
-    --des 'Exp' \
-    --train_epochs 30 \
-    --batch_size 128 \
-    --itr 1 \
-    --use_lgflr 1 \
-    --learning_rate 0.0005 \
-    > "${log_dir}/${model_id_name}_96_96_fredf_${run_timestamp}.log" 2>&1 &
+run_experiment() {
+    local pred_len=$1
+    local d_model=$2
+    local t_ff=$3
+    local c_ff=$4
+    local c_dropout=$5
+    local t_dropout=$6
+    local head_dropout=$7
+    local mode=$8
+    local adaptive_args=()
 
-python -u run_longExp.py \
-    --random_seed $random_seed \
-    --is_training 1 \
-    --root_path $root_path_name \
-    --data_path $data_path_name \
-    --model_id ETTh1_96_192 \
-    --model $model_name \
-    --data $data_name \
-    --features M \
-    --seq_len 96 \
-    --pred_len 192 \
-    --enc_in 7 \
-    --d_model 128 \
-    --t_ff 1024 \
-    --c_ff 7 \
-    --c_dropout 0 \
-    --t_dropout 0 \
-    --head_dropout 0.3 \
-    --embed_dropout 0 \
-    --patience 5 \
-    --des 'Exp' \
-    --train_epochs 30 \
-    --batch_size 128 \
-    --itr 1 \
-    --use_lgflr 1 \
-    --learning_rate 0.0005 \
-    > "${log_dir}/${model_id_name}_96_192_fredf_${run_timestamp}.log" 2>&1 &
+    if [[ "$mode" == "ALGRS_plateau" ]]; then
+        adaptive_args=(
+            --use_lgflr 1
+            --lgf_mode plateau
+            --lgf_eta_min "$lgf_eta_min"
+            --lgf_eta_max "$lgf_eta_max"
+        )
+    fi
 
-python -u run_longExp.py \
-    --random_seed $random_seed \
-    --is_training 1 \
-    --root_path $root_path_name \
-    --data_path $data_path_name \
-    --model_id ETTh1_96_336 \
-    --model $model_name \
-    --data $data_name \
-    --features M \
-    --seq_len 96 \
-    --pred_len 336 \
-    --enc_in 7 \
-    --d_model 128 \
-    --t_ff 1024 \
-    --c_ff 7 \
-    --c_dropout 0 \
-    --t_dropout 0 \
-    --head_dropout 0.4 \
-    --embed_dropout 0 \
-    --patience 5 \
-    --des 'Exp' \
-    --train_epochs 30 \
-    --batch_size 128 \
-    --itr 1 \
-    --use_lgflr 1 \
-    --learning_rate 0.0005 \
-    > "${log_dir}/${model_id_name}_96_336_fredf_${run_timestamp}.log" 2>&1 &
+    python -u run_longExp.py \
+        --random_seed "$random_seed" \
+        --is_training 1 \
+        --root_path "$root_path_name" \
+        --data_path "$data_path_name" \
+        --model_id "${model_id_name}_96_${pred_len}" \
+        --model "$model_name" \
+        --data "$data_name" \
+        --features M \
+        --seq_len 96 \
+        --pred_len "$pred_len" \
+        --enc_in 7 \
+        --d_model "$d_model" \
+        --t_ff "$t_ff" \
+        --c_ff "$c_ff" \
+        --c_dropout "$c_dropout" \
+        --t_dropout "$t_dropout" \
+        --head_dropout "$head_dropout" \
+        --embed_dropout 0 \
+        --patience "$patience" \
+        --des "$mode" \
+        --train_epochs "$train_epochs" \
+        --batch_size 128 \
+        --itr 1 \
+        --lradj "$baseline_lradj" \
+        --learning_rate "$learning_rate" \
+        "${adaptive_args[@]}" \
+        > "${log_dir}/${model_id_name}_96_${pred_len}_${model_tag}_${mode}_${run_id}.log" 2>&1
+}
 
-python -u run_longExp.py \
-    --random_seed $random_seed \
-    --is_training 1 \
-    --root_path $root_path_name \
-    --data_path $data_path_name \
-    --model_id ETTh1_96_720 \
-    --model $model_name \
-    --data $data_name \
-    --features M \
-    --seq_len 96 \
-    --pred_len 720 \
-    --enc_in 7 \
-    --d_model 64 \
-    --c_ff 7 \
-    --t_ff 128 \
-    --c_dropout 0 \
-    --t_dropout 0.1 \
-    --head_dropout 0.2 \
-    --embed_dropout 0 \
-    --patience 10 \
-    --des 'Exp' \
-    --train_epochs 30 \
-    --batch_size 128 \
-    --itr 1 \
-    --use_lgflr 1 \
-    --learning_rate 0.0005 \
-    > "${log_dir}/${model_id_name}_96_720_fredf_${run_timestamp}.log" 2>&1 &
+run_suite() {
+    local mode=$1
+    echo "Starting ${model_name} ${mode} ablation"
+    run_experiment 96 128 512 7 0 0 0.2 "$mode" &
+    run_experiment 192 128 1024 7 0 0 0.3 "$mode" &
+    run_experiment 336 128 1024 7 0 0 0.4 "$mode" &
+    run_experiment 720 64 128 7 0 0.1 0.2 "$mode" &
+    wait
+    echo "Finished ${model_name} ${mode} ablation"
+}
 
-wait
+run_suite ALGRS_plateau
+run_suite baseline
