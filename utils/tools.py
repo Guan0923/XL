@@ -609,7 +609,7 @@ class PlateauLRController:
 
     requires_gradient = False
 
-    def __init__(self, optimizer, patience=3, factor=0.5, eta_min=1e-7):
+    def __init__(self, optimizer, patience=3, factor=0.9, eta_min=1e-7):
         if not optimizer.param_groups:
             raise ValueError('optimizer must contain at least one parameter group')
         if isinstance(patience, bool) or int(patience) != patience or patience < 1:
@@ -631,7 +631,7 @@ class PlateauLRController:
         self._set_lr(self._current_lr())
 
     def step(self, validation_loss=None, train_epoch_loss=None):
-        """Observe one epoch and hold or halve the learning rate.
+        """Observe one epoch and hold or reduce the learning rate.
 
         Validation loss has priority. If it is unavailable, train_epoch_loss
         must be the mean over the complete epoch, not the final batch loss.
@@ -659,7 +659,7 @@ class PlateauLRController:
                 self.bad_epochs = 0
                 if new_lr < old_lr:
                     self.reductions += 1
-                    event = 'lr_halved'
+                    event = 'lr_reduced'
                 else:
                     event = 'lr_floor'
             else:

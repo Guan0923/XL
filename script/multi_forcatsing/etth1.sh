@@ -12,6 +12,7 @@ learning_rate=0.0005
 baseline_lradj=type3
 lgf_eta_min=1e-7
 lgf_eta_max=$learning_rate
+lgf_plateau_factor=0.9
 
 log_dir=./logs
 run_id="$(date +%Y%m%d_%H%M%S)_$$"
@@ -32,6 +33,7 @@ run_experiment() {
         adaptive_args=(
             --use_lgflr 1
             --lgf_mode plateau
+            --lgf_plateau_factor "$lgf_plateau_factor"
             --lgf_eta_min "$lgf_eta_min"
             --lgf_eta_max "$lgf_eta_max"
         )
