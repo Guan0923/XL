@@ -15,9 +15,9 @@ def data_provider(args, flag):
     Data = data_dict[args.data]
     timeenc = 0 if args.embed != 'timeF' else 1
 
-    if flag == 'test':
+    if flag in ('val', 'test'):
         shuffle_flag = False
-        drop_last = True
+        drop_last = False
         batch_size = args.batch_size
         freq = args.freq
     elif flag == 'pred':
